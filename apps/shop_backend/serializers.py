@@ -61,6 +61,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = OrderItem
         fields = ('id', 'order', 'product', 'product_name', 'shop', 'shop_name', 'quantity', 'price', 'total_price')
+        read_only_fields = ('id', 'order')
 
     def get_price(self, obj):
         try:
@@ -71,6 +72,24 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     def get_total_price(self, obj):
         return self.get_price(obj) * obj.quantity
+
+    def validate(self, data):
+        # Проверка доступности товара при создании/обновлении
+        product = data.get('product')
+        shop = data.get('shop')
+        quantity = data.get('quantity', 1)
+
+        if product and shop:
+            try:
+                product_info = ProductInfo.objects.get(product=product, shop=shop)
+                if not product_info.available:
+                    raise serializers.ValidationError("Товар недоступен")
+                if product_info.quantity < quantity:
+                    raise serializers.ValidationError(f"Недостаточно товара. Доступно: {product_info.quantity}")
+            except ProductInfo.DoesNotExist:
+                raise serializers.ValidationError("Товар не найден в указанном магазине")
+
+        return data
 
 
 class OrderSerializer(serializers.ModelSerializer):

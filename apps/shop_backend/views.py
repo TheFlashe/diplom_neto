@@ -1,14 +1,12 @@
-from django.core.validators import URLValidator
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import permissions, generics, status, filters
-from rest_framework.validators import UniqueValidator
 from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
+from rest_framework.decorators import action
 
-from .models import *
 from .serializers import *
 
 from django.db import transaction
@@ -18,9 +16,12 @@ import yaml
 import requests
 
 
-class ShopViewSet(generics.ListAPIView):
+class ShopViewSet(ModelViewSet):
+    """Вью магазина"""
     queryset = Shop.objects.all()
     serializer_class = ShopSerializer
+    permission_classes = [permissions.AllowAny]
+    http_method_names = ['get']
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'description']
     ordering_fields = ['name', 'created_at']
@@ -28,6 +29,7 @@ class ShopViewSet(generics.ListAPIView):
 
 
 class CategoryViewSet(ModelViewSet):
+    """Вью категорий"""
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
 
@@ -44,6 +46,7 @@ class CategoryViewSet(ModelViewSet):
 
 
 class ProductViewSet(ModelViewSet):
+    """Вью продуктов"""
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [permissions.AllowAny]
@@ -52,6 +55,7 @@ class ProductViewSet(ModelViewSet):
 
 
 class ProductInfoViewSet(ModelViewSet):
+    """Вью деталей продуктов"""
     queryset = ProductInfo.objects.all()
     serializer_class = ProductInfoSerializer
     http_method_names = ['get']
@@ -72,10 +76,358 @@ class ProductInfoViewSet(ModelViewSet):
         return queryset
 
 
+class BasketViewSet(ModelViewSet):
+    """Вью корзины"""
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Order.objects.filter(user=self.request.user, status='basket')
+
+    def list(self, request):
+        """корзина пользователя"""
+        basket, created = Order.objects.get_or_create(
+            user=request.user,
+            status='basket'
+        )
+        serializer = self.get_serializer(basket)
+        return Response(serializer.data)
+
+    def create(self, request):
+        """добавляем товар в корзину"""
+        product_id = request.data.get('product_id')
+        shop_id = request.data.get('shop_id')
+        quantity = request.data.get('quantity', 1)
+
+        if not all([product_id, shop_id]):
+            return Response(
+                {'error': 'Необходимо указать product_id и shop_id'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        basket, created = Order.objects.get_or_create(
+            user=request.user,
+            status='basket'
+        )
+
+        try:
+            product = Product.objects.get(id=product_id)
+            shop = Shop.objects.get(id=shop_id)
+
+            # Проверяем доступность товара
+            product_info = ProductInfo.objects.filter(
+                product=product,
+                shop=shop,
+                available=True
+            ).first()
+
+            if not product_info:
+                return Response(
+                    {'error': 'Товар недоступен в указанном магазине'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if product_info.quantity < quantity:
+                return Response(
+                    {'error': f'Недостаточно товара. Доступно: {product_info.quantity}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Создаем или обновляем позицию в корзине
+            order_item, created = OrderItem.objects.get_or_create(
+                order=basket,
+                product=product,
+                shop=shop,
+                defaults={'quantity': quantity}
+            )
+
+            if not created:
+                order_item.quantity += quantity
+                order_item.save()
+                action = 'updated'
+            else:
+                action = 'created'
+
+            serializer = OrderItemSerializer(order_item)
+            return Response({
+                'action': action,
+                'item': serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        except (Product.DoesNotExist, Shop.DoesNotExist):
+            return Response(
+                {'error': 'Товар или магазин не найдены'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['post'])
+    def add_items(self, request):
+
+        items_data = request.data.get('items', [])
+        if not items_data:
+            return Response(
+                {'error': 'Не указаны товары для добавления'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        basket, created = Order.objects.get_or_create(
+            user=request.user,
+            status='basket'
+        )
+
+        added_count = 0
+        errors = []
+
+        for item_data in items_data:
+            product_id = item_data.get('product_id')
+            shop_id = item_data.get('shop_id')
+            quantity = item_data.get('quantity', 1)
+
+            if not all([product_id, shop_id]):
+                errors.append("Для каждого товара product_id и shop_id")
+                continue
+
+            try:
+                product = Product.objects.get(id=product_id)
+                shop = Shop.objects.get(id=shop_id)
+
+                # Проверяем доступность товара
+                product_info = ProductInfo.objects.filter(
+                    product=product,
+                    shop=shop,
+                    available=True
+                ).first()
+
+                if not product_info:
+                    errors.append(f"Товар {product.name} недоступен в магазине {shop.name}")
+                    continue
+
+                if product_info.quantity < quantity:
+                    errors.append(f"Недостаточно товара {product.name}. Доступно: {product_info.quantity}")
+                    continue
+
+                # Создаем или обновляем позицию в корзине
+                order_item, created = OrderItem.objects.get_or_create(
+                    order=basket,
+                    product=product,
+                    shop=shop,
+                    defaults={'quantity': quantity}
+                )
+
+                if not created:
+                    order_item.quantity += quantity
+                    order_item.save()
+
+                added_count += 1
+
+            except (Product.DoesNotExist, Shop.DoesNotExist) as e:
+                errors.append(f"Товар или магазин не найдены: {e}")
+                continue
+
+        response_data = {
+            'added_count': added_count,
+            'basket_id': basket.id
+        }
+
+        if errors:
+            response_data['errors'] = errors
+            return Response(response_data, status=status.HTTP_207_MULTI_STATUS)
+
+        return Response(response_data)
+
+    @action(detail=False, methods=['put'])
+    def update_items(self, request):
+        """изменяем кол-во товара в корзине"""
+        items_data = request.data.get('items', [])
+        if not items_data:
+            return Response(
+                {'error': 'Не указаны товары для обновления'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            basket = Order.objects.get(user=request.user, status='basket')
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Корзина не найдена'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        updated_count = 0
+        errors = []
+
+        for item_data in items_data:
+            item_id = item_data.get('id')
+            quantity = item_data.get('quantity')
+
+            if not all([item_id, quantity]):
+                errors.append("Для обновления id и quantity")
+                continue
+
+            if quantity <= 0:
+                errors.append(f"Количество должно быть положительным для позиции {item_id}")
+                continue
+
+            try:
+                order_item = OrderItem.objects.get(id=item_id, order=basket)
+
+                # Проверяем доступное количество
+                product_info = ProductInfo.objects.filter(
+                    product=order_item.product,
+                    shop=order_item.shop
+                ).first()
+
+                if product_info and quantity <= product_info.quantity:
+                    order_item.quantity = quantity
+                    order_item.save()
+                    updated_count += 1
+                else:
+                    errors.append(f"Недостаточно товара {order_item.product.name}")
+
+            except OrderItem.DoesNotExist:
+                errors.append(f"Позиция с id {item_id} не найдена в корзине")
+
+        response_data = {'updated_count': updated_count}
+
+        if errors:
+            response_data['errors'] = errors
+            return Response(response_data, status=status.HTTP_207_MULTI_STATUS)
+
+        return Response(response_data)
+
+    @action(detail=False, methods=['delete'])
+    def remove_items(self, request):
+        """удалить корзину"""
+        item_ids = request.data.get('items', [])
+        if not item_ids:
+            return Response(
+                {'error': 'Не указаны товары для удаления'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            basket = Order.objects.get(user=request.user, status='basket')
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Корзина не найдена'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        deleted_count, _ = OrderItem.objects.filter(
+            order=basket,
+            id__in=item_ids
+        ).delete()
+
+        return Response({'deleted_count': deleted_count})
+
+    @action(detail=False, methods=['post'])
+    def clear(self, request):
+        """очистить корзину"""
+        try:
+            basket = Order.objects.get(user=request.user, status='basket')
+            deleted_count, _ = basket.items.all().delete()
+            return Response({'deleted_count': deleted_count})
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Корзина не найдена'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class OrderViewSet(ModelViewSet):
+    """Управление заказами """
+    queryset = Order.objects.all()
+    serializer_class = OrderSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # Пользователь видит только свои заказы, кроме корзины
+        return Order.objects.filter(user=self.request.user).exclude(status='basket')
+
+    def create(self, request):
+        """создать заказ"""
+        try:
+            basket = Order.objects.get(user=request.user, status='basket')
+        except Order.DoesNotExist:
+            return Response(
+                {'error': 'Корзина пуста'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not basket.items.exists():
+            return Response(
+                {'error': 'Корзина пуста'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Проверяем доступность всех товаров
+        errors = []
+        for item in basket.items.all():
+            try:
+                product_info = ProductInfo.objects.get(
+                    product=item.product,
+                    shop=item.shop
+                )
+
+                if not product_info.available:
+                    errors.append(f"Товар {item.product.name} недоступен в магазине {item.shop.name}")
+                elif product_info.quantity < item.quantity:
+                    errors.append(f"Недостаточно товара {item.product.name}. Доступно: {product_info.quantity}")
+
+            except ProductInfo.DoesNotExist:
+                errors.append(f"Товар {item.product.name} не найден в магазине {item.shop.name}")
+
+        if errors:
+            return Response(
+                {'errors': errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Меняем статус корзины на 'new'
+        basket.status = 'new'
+        basket.save()
+
+        # Можно добавить логику резервирования товаров здесь
+        # ...
+
+        serializer = self.get_serializer(basket)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def cancel(self, request, pk=None):
+        """отменить заказ"""
+        order = self.get_object()
+        if order.status not in ['delivered', 'canceled']:
+            order.status = 'canceled'
+            order.save()
+
+            # Можно добавить логику возврата товаров на склад
+            # ...
+
+            return Response({'status': 'Заказ отменен'})
+        else:
+            return Response(
+                {'error': 'Невозможно отменить доставленный или уже отмененный заказ'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+
+class ContactViewSet(ModelViewSet):
+    """профиль пользователя"""
+    queryset = Contact.objects.all()
+    serializer_class = ContactSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Contact.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
 class PartnerUpdate(APIView):
-    """
-    Класс для обновления прайса от поставщика .Украденый клас обновления,не знал как реализовывать
-    """
+    """обновить прайс"""
 
     @transaction.atomic
     def post(self, request, *args, **kwargs):

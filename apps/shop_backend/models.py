@@ -188,7 +188,6 @@ class OrderItem(models.Model):
 
 
 class Contact(models.Model):
-
     TYPE_CHOICES = [
         ('phone', 'Телефон'),
         ('email', 'Email'),
