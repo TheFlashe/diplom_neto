@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import login
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
 from .models import User
 from django.conf import settings
 from .serializers import (UserLoginSerializer, UserProfileSerializer, UserRegistrationSerializer,
@@ -87,6 +87,17 @@ class ChangePasswordView(generics.UpdateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
+        user = self.request.user
+
+
+        msg = EmailMultiAlternatives(
+            f"Пароль измене для {user.email}",
+            "Ваш пароль изменен.",
+            settings.EMAIL_HOST_USER,
+            [user.email]
+        )
+        msg.send()
 
         return Response({
             'message': 'Пароль изменен успешно'
