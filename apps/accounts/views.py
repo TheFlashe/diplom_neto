@@ -4,8 +4,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import login
-
+from django.core.mail import send_mail
 from .models import User
+from django.conf import settings
 from .serializers import (UserLoginSerializer, UserProfileSerializer, UserRegistrationSerializer,
                           UpdateUserProfileSerializer, ChangePasswordSerializer)
 
@@ -20,6 +21,15 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        try:
+            send_mail(subject='Успешная регистрация',
+                      message=f'Привет, {user.email}! Вы успешно зарегистрировались в нашем приложении.',
+                      from_email=settings.DEFAULT_FROM_EMAIL,
+                      recipient_list=[user.email],
+                      fail_silently=False)
+        except Exception as e:
+            print(f"Ошибка отправки email: {e}")
 
         refresh = RefreshToken.for_user(user)
 
