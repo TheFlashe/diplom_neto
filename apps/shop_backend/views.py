@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
-
+from .signals import order_change_status
 from .serializers import *
 
 from django.db import transaction
@@ -336,14 +336,25 @@ class BasketViewSet(ModelViewSet):
 
 
 class OrderViewSet(ModelViewSet):
-    """Управление заказами """
+    """Управление заказами"""
     queryset = Order.objects.all()
     serializer_class = OrderSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        # Пользователь видит только свои заказы, кроме корзины
         return Order.objects.filter(user=self.request.user).exclude(status='basket')
+
+    def _send_status_notification(self, order, status):
+        """Вспомогательный метод для отправки уведомлений"""
+        try:
+            order_change_status.send(
+                sender=self.__class__,
+                user_id=order.user.id,
+                order_id=order.id,
+                status=status
+            )
+        except Exception as e:
+            print(f"Notification error: {e}")
 
     def create(self, request):
         """создать заказ"""
@@ -388,11 +399,36 @@ class OrderViewSet(ModelViewSet):
         basket.status = 'new'
         basket.save()
 
-        # Можно добавить логику резервирования товаров здесь
-        # ...
+        # Отправляем уведомление о создании заказа
+        self._send_status_notification(basket, 'new')
 
         serializer = self.get_serializer(basket)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch'])
+    def update_status(self, request, pk=None):
+        """Изменение статуса заказа"""
+        order = self.get_object()
+        new_status = request.data.get('status')
+
+        valid_statuses = ['new', 'confirmed', 'assembled', 'sent', 'delivered', 'canceled']
+        if not new_status or new_status not in valid_statuses:
+            return Response(
+                {'error': f'Недопустимый статус. Допустимые: {", ".join(valid_statuses)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        order.status = new_status
+        order.save()
+
+        # Отправляем уведомление об изменении статуса
+        self._send_status_notification(order, new_status)
+
+        return Response({
+            'message': f'Статус заказа изменен на: {new_status}',
+            'order_id': order.id,
+            'status': new_status
+        })
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
@@ -402,8 +438,8 @@ class OrderViewSet(ModelViewSet):
             order.status = 'canceled'
             order.save()
 
-            # Можно добавить логику возврата товаров на склад
-            # ...
+            # Отправляем уведомление об отмене заказа
+            self._send_status_notification(order, 'canceled')
 
             return Response({'status': 'Заказ отменен'})
         else:
@@ -411,7 +447,6 @@ class OrderViewSet(ModelViewSet):
                 {'error': 'Невозможно отменить доставленный или уже отмененный заказ'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
 
 class ContactViewSet(ModelViewSet):
     """профиль пользователя"""
