@@ -10,6 +10,8 @@ class ShopSerializer(serializers.ModelSerializer):
 
 class CategorySerializer(serializers.ModelSerializer):
     shops = ShopSerializer(many=True, read_only=True)
+    shops = ShopSerializer(many=True, read_only=True)
+    shops = ShopSerializer(many=True, read_only=True)
 
     class Meta:
         model = Category
@@ -65,13 +67,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     def get_price(self, obj):
         try:
-            product_info = ProductInfo.objects.get(product=obj.product, shop=obj.shop)
+            product_info = ProductInfo.objects.get(product=obj.product, shop=obj.shop, available=True
+                                                   )
             return product_info.price
         except ProductInfo.DoesNotExist:
             return 0
 
     def get_total_price(self, obj):
-        return self.get_price(obj) * obj.quantity
+        price = self.get_price(obj)
+        return price * obj.quantity
 
     def validate(self, data):
         # Проверка доступности товара при создании/обновлении
@@ -101,7 +105,20 @@ class OrderSerializer(serializers.ModelSerializer):
         fields = ('id', 'user', 'dt', 'status', 'items', 'total_amount')
 
     def get_total_amount(self, obj):
-        return sum(item.quantity * item.product_info.price for item in obj.items.all())
+        total = 0
+        for item in obj.items.all():
+            try:
+
+                product_info = ProductInfo.objects.get(
+                    product=item.product,
+                    shop=item.shop,
+                    available=True
+                )
+                total += item.quantity * product_info.price
+            except ProductInfo.DoesNotExist:
+                # Если товар не найден, пропускаем
+                continue
+        return total
 
 
 class ContactSerializer(serializers.ModelSerializer):
