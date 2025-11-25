@@ -1,28 +1,30 @@
 # apps/shop_backend/management/commands/import_yaml.py
 import os
+
 import yaml
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils.text import slugify
-from django.contrib.auth import get_user_model
-from apps.shop_backend.models import Shop, Category, Product, ProductInfo, Parameter, ProductParameter
+
+from apps.shop_backend.models import Category, Parameter, Product, ProductInfo, ProductParameter, Shop
 
 User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Import products from YAML file'
+    help = "Import products from YAML file"
 
     def add_arguments(self, parser):
-        parser.add_argument('--file', type=str, default='data/shop_data.yaml', help='Path to YAML file')
-        parser.add_argument('--owner', type=str, required=True, help='Owner username')
+        parser.add_argument("--file", type=str, default="data/shop_data.yaml", help="Path to YAML file")
+        parser.add_argument("--owner", type=str, required=True, help="Owner username")
 
     def handle(self, *args, **options):
-        file_path = options['file']
-        owner_username = options['owner']
+        file_path = options["file"]
+        owner_username = options["owner"]
 
         if not os.path.exists(file_path):
-            self.stdout.write(self.style.ERROR(f'Файл {file_path} не найден!'))
+            self.stdout.write(self.style.ERROR(f"Файл {file_path} не найден!"))
             return
 
         try:
@@ -37,7 +39,7 @@ class Command(BaseCommand):
             )
 
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f'❌ Ошибка импорта: {e}'))
+            self.stdout.write(self.style.ERROR(f"❌ Ошибка импорта: {e}"))
 
 
 class YamlImporter:
@@ -53,7 +55,7 @@ class YamlImporter:
 
     def load_yaml_data(self):
         """Загружаем данные из YAML файла"""
-        with open(self.file_path, 'r', encoding='utf-8') as file:
+        with open(self.file_path, "r", encoding="utf-8") as file:
             return yaml.safe_load(file)
 
     def create_or_get_shop(self, shop_name):
@@ -61,10 +63,10 @@ class YamlImporter:
         shop, created = Shop.objects.get_or_create(
             name=shop_name,
             defaults={
-                'owner': self.owner,
-                'description': f'Магазин {shop_name}',
-                'url': f'https://{slugify(shop_name)}.ru'
-            }
+                "owner": self.owner,
+                "description": f"Магазин {shop_name}",
+                "url": f"https://{slugify(shop_name)}.ru",
+            },
         )
         return shop
 
@@ -72,11 +74,11 @@ class YamlImporter:
         """Создаем категории и связываем с магазином"""
         for cat_data in categories_data:
             # Сначала пытаемся найти существующую категорию
-            category = Category.objects.filter(name=cat_data['name']).first()
+            category = Category.objects.filter(name=cat_data["name"]).first()
 
             if not category:
                 # Создаем новую категорию с правильным slug
-                slug = slugify(cat_data['name'])
+                slug = slugify(cat_data["name"])
                 # Проверяем уникальность slug
                 counter = 1
                 base_slug = slug
@@ -84,15 +86,12 @@ class YamlImporter:
                     slug = f"{base_slug}-{counter}"
                     counter += 1
 
-                category = Category.objects.create(
-                    name=cat_data['name'],
-                    slug=slug
-                )
+                category = Category.objects.create(name=cat_data["name"], slug=slug)
                 print(f"Создана категория: {category.name} (slug: {category.slug})")
             else:
                 print(f"Найдена существующая категория: {category.name}")
 
-            self.category_map[cat_data['id']] = category
+            self.category_map[cat_data["id"]] = category
             category.shops.add(self.shop)
 
     def get_or_create_parameter(self, param_name):
@@ -106,16 +105,16 @@ class YamlImporter:
         """Создаем продукт и связанные данные"""
         try:
             # Находим категорию по ID из YAML
-            category = self.category_map.get(product_data['category'])
+            category = self.category_map.get(product_data["category"])
             if not category:
                 print(f"Категория с ID {product_data['category']} не найдена")
                 return False
 
             # Создаем или получаем продукт с правильным slug
-            product = Product.objects.filter(name=product_data['name'], category=category).first()
+            product = Product.objects.filter(name=product_data["name"], category=category).first()
 
             if not product:
-                slug = slugify(product_data['name'])
+                slug = slugify(product_data["name"])
                 # Проверяем уникальность slug
                 counter = 1
                 base_slug = slug
@@ -123,11 +122,7 @@ class YamlImporter:
                     slug = f"{base_slug}-{counter}"
                     counter += 1
 
-                product = Product.objects.create(
-                    name=product_data['name'],
-                    category=category,
-                    slug=slug
-                )
+                product = Product.objects.create(name=product_data["name"], category=category, slug=slug)
                 print(f"Создан продукт: {product.name}")
             else:
                 print(f"Найден существующий продукт: {product.name}")
@@ -137,24 +132,24 @@ class YamlImporter:
                 product=product,
                 shop=self.shop,
                 defaults={
-                    'name': product_data['name'],
-                    'quantity': product_data.get('quantity', 0),
-                    'price': product_data['price'],
-                    'price_rrc': product_data['price_rrc'],
-                    'available': product_data.get('quantity', 0) > 0
-                }
+                    "name": product_data["name"],
+                    "quantity": product_data.get("quantity", 0),
+                    "price": product_data["price"],
+                    "price_rrc": product_data["price_rrc"],
+                    "available": product_data.get("quantity", 0) > 0,
+                },
             )
 
             # Обновляем информацию если продукт уже существует
             if not info_created:
-                product_info.quantity = product_data.get('quantity', 0)
-                product_info.price = product_data['price']
-                product_info.price_rrc = product_data['price_rrc']
-                product_info.available = product_data.get('quantity', 0) > 0
+                product_info.quantity = product_data.get("quantity", 0)
+                product_info.price = product_data["price"]
+                product_info.price_rrc = product_data["price_rrc"]
+                product_info.available = product_data.get("quantity", 0) > 0
                 product_info.save()
 
             # Добавляем параметры
-            parameters = product_data.get('parameters', {})
+            parameters = product_data.get("parameters", {})
             for param_name, param_value in parameters.items():
                 parameter = self.get_or_create_parameter(param_name)
 
@@ -167,7 +162,7 @@ class YamlImporter:
                 ProductParameter.objects.update_or_create(
                     product_info=product_info,
                     parameter=parameter,
-                    defaults={'value': str_value}
+                    defaults={"value": str_value},
                 )
 
             print(f"✓ Обработан товар: {product_data['name']}")
@@ -186,11 +181,11 @@ class YamlImporter:
             print(f"🛒 Загружены данные магазина: {data['shop']}")
 
             # Создаем магазин
-            self.shop = self.create_or_get_shop(data['shop'])
+            self.shop = self.create_or_get_shop(data["shop"])
             print(f"🏪 Магазин: {self.shop.name}")
 
             # Создаем категории
-            self.create_categories(data['categories'])
+            self.create_categories(data["categories"])
             print(f"📂 Обработано категорий: {len(data['categories'])}")
 
             # Создаем товары
@@ -199,7 +194,7 @@ class YamlImporter:
 
             print(f"📦 Начинаем импорт {len(data['goods'])} товаров...")
 
-            for product_data in data['goods']:
+            for product_data in data["goods"]:
                 if self.create_product(product_data):
                     success_count += 1
                 else:
@@ -208,11 +203,11 @@ class YamlImporter:
             print(f"✅ Импорт завершен: Успешно - {success_count}, Ошибок - {error_count}")
 
             return {
-                'shop': self.shop.name,
-                'categories': len(data['categories']),
-                'products_success': success_count,
-                'products_errors': error_count,
-                'total_products': len(data['goods'])
+                "shop": self.shop.name,
+                "categories": len(data["categories"]),
+                "products_success": success_count,
+                "products_errors": error_count,
+                "total_products": len(data["goods"]),
             }
 
         except Exception as e:

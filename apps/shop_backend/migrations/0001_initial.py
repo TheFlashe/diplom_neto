@@ -15,143 +15,341 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Category',
+            name="Category",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(db_index=True, max_length=50)),
-                ('slug', models.SlugField(blank=True, unique=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(db_index=True, max_length=50)),
+                ("slug", models.SlugField(blank=True, unique=True)),
             ],
             options={
-                'verbose_name': 'Category',
-                'verbose_name_plural': 'Categories',
-                'ordering': ('name',),
+                "verbose_name": "Category",
+                "verbose_name_plural": "Categories",
+                "ordering": ("name",),
             },
         ),
         migrations.CreateModel(
-            name='Parameter',
+            name="Parameter",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(max_length=100, verbose_name='param`s name')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(max_length=100, verbose_name="param`s name")),
             ],
             options={
-                'verbose_name': 'Parameter',
-                'verbose_name_plural': 'Parameters',
+                "verbose_name": "Parameter",
+                "verbose_name_plural": "Parameters",
             },
         ),
         migrations.CreateModel(
-            name='Contact',
+            name="Contact",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('type', models.CharField(choices=[('phone', 'Телефон'), ('email', 'Email'), ('address', 'Адрес')], max_length=20, verbose_name='Type')),
-                ('value', models.CharField(max_length=200, verbose_name='value')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='contacts', to=settings.AUTH_USER_MODEL, verbose_name='User')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "type",
+                    models.CharField(
+                        choices=[
+                            ("phone", "Телефон"),
+                            ("email", "Email"),
+                            ("address", "Адрес"),
+                        ],
+                        max_length=20,
+                        verbose_name="Type",
+                    ),
+                ),
+                ("value", models.CharField(max_length=200, verbose_name="value")),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="contacts",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="User",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Contact',
-                'verbose_name_plural': 'Contacts',
+                "verbose_name": "Contact",
+                "verbose_name_plural": "Contacts",
             },
         ),
         migrations.CreateModel(
-            name='Order',
+            name="Order",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('dt', models.DateTimeField(auto_now_add=True, verbose_name='Date created')),
-                ('status', models.CharField(choices=[('basket', 'В корзине'), ('new', 'Новый'), ('confirmed', 'Подтвержден'), ('assembled', 'Собран'), ('sent', 'Отправлен'), ('delivered', 'Доставлен'), ('canceled', 'Отменен')], default='basket', max_length=20, verbose_name='Status')),
-                ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='orders', to=settings.AUTH_USER_MODEL, verbose_name='User')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "dt",
+                    models.DateTimeField(
+                        auto_now_add=True, verbose_name="Date created"
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("basket", "В корзине"),
+                            ("new", "Новый"),
+                            ("confirmed", "Подтвержден"),
+                            ("assembled", "Собран"),
+                            ("sent", "Отправлен"),
+                            ("delivered", "Доставлен"),
+                            ("canceled", "Отменен"),
+                        ],
+                        default="basket",
+                        max_length=20,
+                        verbose_name="Status",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="orders",
+                        to=settings.AUTH_USER_MODEL,
+                        verbose_name="User",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Order',
-                'verbose_name_plural': 'Orders',
-                'ordering': ('-dt',),
+                "verbose_name": "Order",
+                "verbose_name_plural": "Orders",
+                "ordering": ("-dt",),
             },
         ),
         migrations.CreateModel(
-            name='Product',
+            name="Product",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(db_index=True, max_length=150)),
-                ('image', models.ImageField(blank=True, upload_to='products/%Y/%m/%d')),
-                ('slug', models.SlugField(blank=True, max_length=150, unique=True)),
-                ('category', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='products', to='shop_backend.category')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(db_index=True, max_length=150)),
+                ("image", models.ImageField(blank=True, upload_to="products/%Y/%m/%d")),
+                ("slug", models.SlugField(blank=True, max_length=150, unique=True)),
+                (
+                    "category",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="products",
+                        to="shop_backend.category",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Product',
-                'verbose_name_plural': 'Products',
-                'ordering': ('name',),
+                "verbose_name": "Product",
+                "verbose_name_plural": "Products",
+                "ordering": ("name",),
             },
         ),
         migrations.CreateModel(
-            name='Shop',
+            name="Shop",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(db_index=True, max_length=50)),
-                ('slug', models.SlugField(blank=True, unique=True)),
-                ('description', models.CharField(blank=True, max_length=200)),
-                ('url', models.URLField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='ownee_shops', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(db_index=True, max_length=50)),
+                ("slug", models.SlugField(blank=True, unique=True)),
+                ("description", models.CharField(blank=True, max_length=200)),
+                ("url", models.URLField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "owner",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="ownee_shops",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Shop',
-                'verbose_name_plural': 'Shops',
-                'db_table': 'shop',
+                "verbose_name": "Shop",
+                "verbose_name_plural": "Shops",
+                "db_table": "shop",
             },
         ),
         migrations.CreateModel(
-            name='ProductInfo',
+            name="ProductInfo",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('name', models.CharField(db_index=True, max_length=150)),
-                ('slug', models.SlugField(blank=True, max_length=150, unique=True)),
-                ('description', models.TextField(blank=True)),
-                ('quantity', models.PositiveIntegerField(default=0)),
-                ('price', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('price_rrc', models.DecimalField(decimal_places=2, max_digits=10)),
-                ('available', models.BooleanField(default=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='product_info', to='shop_backend.product')),
-                ('shop', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='product_info', to='shop_backend.shop')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("name", models.CharField(db_index=True, max_length=150)),
+                ("slug", models.SlugField(blank=True, max_length=150, unique=True)),
+                ("description", models.TextField(blank=True)),
+                ("quantity", models.PositiveIntegerField(default=0)),
+                ("price", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("price_rrc", models.DecimalField(decimal_places=2, max_digits=10)),
+                ("available", models.BooleanField(default=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "product",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="product_info",
+                        to="shop_backend.product",
+                    ),
+                ),
+                (
+                    "shop",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="product_info",
+                        to="shop_backend.shop",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'ProductInfo',
-                'verbose_name_plural': 'ProductsInfo',
-                'ordering': ('name',),
-                'unique_together': {('product', 'shop')},
+                "verbose_name": "ProductInfo",
+                "verbose_name_plural": "ProductsInfo",
+                "ordering": ("name",),
+                "unique_together": {("product", "shop")},
             },
         ),
         migrations.AddField(
-            model_name='category',
-            name='shops',
-            field=models.ManyToManyField(related_name='categories', to='shop_backend.shop'),
+            model_name="category",
+            name="shops",
+            field=models.ManyToManyField(
+                related_name="categories", to="shop_backend.shop"
+            ),
         ),
         migrations.CreateModel(
-            name='ProductParameter',
+            name="ProductParameter",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('value', models.CharField(max_length=100)),
-                ('parameter', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='product_parameters', to='shop_backend.parameter')),
-                ('product_info', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='product_parameters', to='shop_backend.productinfo')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("value", models.CharField(max_length=100)),
+                (
+                    "parameter",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="product_parameters",
+                        to="shop_backend.parameter",
+                    ),
+                ),
+                (
+                    "product_info",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="product_parameters",
+                        to="shop_backend.productinfo",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'ProductParameter',
-                'verbose_name_plural': 'ProductsParameters',
-                'constraints': [models.UniqueConstraint(fields=('product_info', 'parameter'), name='unique_product_parameter')],
+                "verbose_name": "ProductParameter",
+                "verbose_name_plural": "ProductsParameters",
+                "constraints": [
+                    models.UniqueConstraint(
+                        fields=("product_info", "parameter"),
+                        name="unique_product_parameter",
+                    )
+                ],
             },
         ),
         migrations.CreateModel(
-            name='OrderItem',
+            name="OrderItem",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('quantity', models.PositiveIntegerField(default=1, verbose_name='quantity')),
-                ('order', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='items', to='shop_backend.order', verbose_name='Order')),
-                ('product', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='shop_backend.product', verbose_name='Product')),
-                ('shop', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='shop_backend.shop', verbose_name='Shop')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "quantity",
+                    models.PositiveIntegerField(default=1, verbose_name="quantity"),
+                ),
+                (
+                    "order",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="items",
+                        to="shop_backend.order",
+                        verbose_name="Order",
+                    ),
+                ),
+                (
+                    "product",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="shop_backend.product",
+                        verbose_name="Product",
+                    ),
+                ),
+                (
+                    "shop",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="shop_backend.shop",
+                        verbose_name="Shop",
+                    ),
+                ),
             ],
             options={
-                'verbose_name': 'Order item',
-                'verbose_name_plural': 'Order items',
-                'constraints': [models.UniqueConstraint(fields=('order', 'product', 'shop'), name='unique_order_item')],
+                "verbose_name": "Order item",
+                "verbose_name_plural": "Order items",
+                "constraints": [
+                    models.UniqueConstraint(
+                        fields=("order", "product", "shop"), name="unique_order_item"
+                    )
+                ],
             },
         ),
     ]

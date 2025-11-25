@@ -1,9 +1,10 @@
 # apps/shop_backend/services/yaml_importer.py
 import yaml
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils.text import slugify
-from django.contrib.auth import get_user_model
-from apps.shop_backend.models import Shop, Category, Product, ProductInfo, Parameter, ProductParameter
+
+from apps.shop_backend.models import Category, Parameter, Product, ProductInfo, ProductParameter, Shop
 
 User = get_user_model()
 
@@ -21,7 +22,7 @@ class YamlImporter:
 
     def load_yaml_data(self):
         """Загружаем данные из YAML файла"""
-        with open(self.file_path, 'r', encoding='utf-8') as file:
+        with open(self.file_path, "r", encoding="utf-8") as file:
             return yaml.safe_load(file)
 
     def create_or_get_shop(self, shop_name):
@@ -29,10 +30,10 @@ class YamlImporter:
         shop, created = Shop.objects.get_or_create(
             name=shop_name,
             defaults={
-                'owner': self.owner,
-                'description': f'Магазин {shop_name}',
-                'url': f'https://{slugify(shop_name)}.ru'
-            }
+                "owner": self.owner,
+                "description": f"Магазин {shop_name}",
+                "url": f"https://{slugify(shop_name)}.ru",
+            },
         )
         return shop
 
@@ -40,10 +41,9 @@ class YamlImporter:
         """Создаем категории и связываем с магазином"""
         for cat_data in categories_data:
             category, created = Category.objects.get_or_create(
-                name=cat_data['name'],
-                defaults={'name': cat_data['name']}
+                name=cat_data["name"], defaults={"name": cat_data["name"]}
             )
-            self.category_map[cat_data['id']] = category
+            self.category_map[cat_data["id"]] = category
             category.shops.add(self.shop)
             if created:
                 print(f"Создана категория: {category.name}")
@@ -59,19 +59,16 @@ class YamlImporter:
         """Создаем продукт и связанные данные"""
         try:
             # Находим категорию по ID из YAML
-            category = self.category_map.get(product_data['category'])
+            category = self.category_map.get(product_data["category"])
             if not category:
                 print(f"Категория с ID {product_data['category']} не найдена")
                 return False
 
             # Создаем или получаем продукт
             product, product_created = Product.objects.get_or_create(
-                name=product_data['name'],
+                name=product_data["name"],
                 category=category,
-                defaults={
-                    'name': product_data['name'],
-                    'category': category
-                }
+                defaults={"name": product_data["name"], "category": category},
             )
 
             # Создаем информацию о продукте в магазине
@@ -79,24 +76,24 @@ class YamlImporter:
                 product=product,
                 shop=self.shop,
                 defaults={
-                    'name': product_data['name'],
-                    'quantity': product_data.get('quantity', 0),
-                    'price': product_data['price'],
-                    'price_rrc': product_data['price_rrc'],
-                    'available': product_data.get('quantity', 0) > 0
-                }
+                    "name": product_data["name"],
+                    "quantity": product_data.get("quantity", 0),
+                    "price": product_data["price"],
+                    "price_rrc": product_data["price_rrc"],
+                    "available": product_data.get("quantity", 0) > 0,
+                },
             )
 
             # Обновляем информацию если продукт уже существует
             if not info_created:
-                product_info.quantity = product_data.get('quantity', 0)
-                product_info.price = product_data['price']
-                product_info.price_rrc = product_data['price_rrc']
-                product_info.available = product_data.get('quantity', 0) > 0
+                product_info.quantity = product_data.get("quantity", 0)
+                product_info.price = product_data["price"]
+                product_info.price_rrc = product_data["price_rrc"]
+                product_info.available = product_data.get("quantity", 0) > 0
                 product_info.save()
 
             # Добавляем параметры
-            parameters = product_data.get('parameters', {})
+            parameters = product_data.get("parameters", {})
             for param_name, param_value in parameters.items():
                 parameter = self.get_or_create_parameter(param_name)
 
@@ -109,7 +106,7 @@ class YamlImporter:
                 ProductParameter.objects.update_or_create(
                     product_info=product_info,
                     parameter=parameter,
-                    defaults={'value': str_value}
+                    defaults={"value": str_value},
                 )
 
             print(f"✓ Создан товар: {product_data['name']}")
@@ -128,11 +125,11 @@ class YamlImporter:
             print(f"🛒 Загружены данные магазина: {data['shop']}")
 
             # Создаем магазин
-            self.shop = self.create_or_get_shop(data['shop'])
+            self.shop = self.create_or_get_shop(data["shop"])
             print(f"🏪 Магазин: {self.shop.name}")
 
             # Создаем категории
-            self.create_categories(data['categories'])
+            self.create_categories(data["categories"])
             print(f"📂 Создано категорий: {len(data['categories'])}")
 
             # Создаем товары
@@ -141,7 +138,7 @@ class YamlImporter:
 
             print(f"📦 Начинаем импорт {len(data['goods'])} товаров...")
 
-            for product_data in data['goods']:
+            for product_data in data["goods"]:
                 if self.create_product(product_data):
                     success_count += 1
                 else:
@@ -150,11 +147,11 @@ class YamlImporter:
             print(f"✅ Импорт завершен: Успешно - {success_count}, Ошибок - {error_count}")
 
             return {
-                'shop': self.shop.name,
-                'categories': len(data['categories']),
-                'products_success': success_count,
-                'products_errors': error_count,
-                'total_products': len(data['goods'])
+                "shop": self.shop.name,
+                "categories": len(data["categories"]),
+                "products_success": success_count,
+                "products_errors": error_count,
+                "total_products": len(data["goods"]),
             }
 
         except Exception as e:
